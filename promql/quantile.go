@@ -201,18 +201,61 @@ func quantile(q float64, values vectorByValueHeap) float64 {
 	if q > 1 {
 		return math.Inf(+1)
 	}
-	sort.Sort(values)
+	//sort.Sort(values)
+
+	//n := float64(len(values))
+	//// When the quantile lies between two samples,
+	//// we use a weighted average of the two samples.
+	//rank := q * (n - 1)
+	//
+	//lowerIndex := math.Max(0, math.Floor(rank))
+	//upperIndex := math.Min(n-1, lowerIndex+1)
+	//
+	//weight := rank - math.Floor(rank)
+	//return values[int(lowerIndex)].F*(1-weight) + values[int(upperIndex)].F*weight
+
+	//// Calculate quantile using DataDogSketch
+	//relativeAccuracy := 0.98
+	//sketch, _ := ddsketch.NewDefaultDDSketch(relativeAccuracy)
+	//for _, v := range values {
+	//	sketch.Add(v.F)
+	//}
+	//
+	//qs := []float64{q}
+	//result, _ := sketch.GetValuesAtQuantiles(qs)
+	//return result[0]
+
+	// Calculate quantile using KLL+- sketch
+	kll := NewKLL(256, 2.0/3.0, true, true, false)
+	for _, v := range values {
+		kll.Update(v.V, 1, true)
+	}
+	cdf := kll.cdf()
+	items := make([]float64, 0)
+	weights := make([]float64, 0)
+	for _, pair := range cdf {
+		items = append(items, pair.item)
+		weights = append(weights, pair.weight)
+	}
 
 	n := float64(len(values))
-	// When the quantile lies between two samples,
-	// we use a weighted average of the two samples.
 	rank := q * (n - 1)
-
 	lowerIndex := math.Max(0, math.Floor(rank))
 	upperIndex := math.Min(n-1, lowerIndex+1)
-
 	weight := rank - math.Floor(rank)
-	return values[int(lowerIndex)].V*(1-weight) + values[int(upperIndex)].V*weight
+	result := items[int(lowerIndex)]*(1-weight) + items[int(upperIndex)]*weight
+	return result
+
+	// n := float64(len(values))
+	// // When the quantile lies between two samples,
+	// // we use a weighted average of the two samples.
+	// rank := q * (n - 1)
+
+	// lowerIndex := math.Max(0, math.Floor(rank))
+	// upperIndex := math.Min(n-1, lowerIndex+1)
+
+	// weight := rank - math.Floor(rank)
+	// return values[int(lowerIndex)].V*(1-weight) + values[int(upperIndex)].V*weight
 }
 
 func DDSketchQuantile(q float64, values vectorByValueHeap, relativeAccuracy float64) float64 {

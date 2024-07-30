@@ -470,6 +470,21 @@ func funcQuantileOverTime(vals []parser.Value, args parser.Expressions, enh *Eva
 	})
 }
 
+// === quantile_over_time_kll(Matrix parser.ValueTypeMatrix) Vector ===
+func funcQuantileOverTimeKLL(vals []parser.Value, args parser.Expressions, enh *EvalNodeHelper) Vector {
+	q := vals[0].(Vector)[0].V
+	el := vals[1].(Matrix)[0]
+	if len(el.Points) == 0 {
+		return enh.Out
+	}
+
+	values := make(vectorByValueHeap, 0, len(el.Points))
+	for _, v := range el.Points {
+		values = append(values, Sample{Point: Point{V: v.V}})
+	}
+	return append(enh.Out, Sample{Point: Point{V: quantile(q, values)}})
+}
+
 // === stddev_over_time(Matrix parser.ValueTypeMatrix) Vector ===
 func funcStddevOverTime(vals []parser.Value, args parser.Expressions, enh *EvalNodeHelper) Vector {
 	return aggrOverTime(vals, enh, func(values []Point) float64 {
@@ -1142,6 +1157,7 @@ var FunctionCalls = map[string]FunctionCall{
 	"timestamp":          funcTimestamp,
 	"vector":             funcVector,
 	"year":               funcYear,
+	"quantile_over_time_kll": funcQuantileOverTimeKLL,
 }
 
 // AtModifierUnsafeFunctions are the functions whose result
